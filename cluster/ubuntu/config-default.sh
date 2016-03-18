@@ -66,7 +66,7 @@ export FLANNEL_OTHER_NET_CONFIG
 FLANNEL_OTHER_NET_CONFIG=''
 
 # Admission Controllers to invoke prior to persisting objects in cluster
-export ADMISSION_CONTROL=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,SecurityContextDeny
+export ADMISSION_CONTROL=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota
 
 # Path to the config file or directory of files of kubelet
 export KUBELET_CONFIG=${KUBELET_CONFIG:-""}
