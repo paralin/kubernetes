@@ -26,29 +26,34 @@ fi
 
 block_devices=()
 
-ephemeral_devices=$( (curl --silent http://169.254.169.254/2014-11-05/meta-data/block-device-mapping/ | grep ephemeral) || true )
-for ephemeral_device in $ephemeral_devices; do
-  echo "Checking ephemeral device: ${ephemeral_device}"
-  aws_device=$(curl --silent http://169.254.169.254/2014-11-05/meta-data/block-device-mapping/${ephemeral_device})
+# Disable ephemeral for now
+AWS_ENABLE_EPHEMERAL=""
+# AWS_ENABLE_EPHEMERAL="true"
+if [ -n "$AWS_ENABLE_EPHEMERAL" ]; then
+  ephemeral_devices=$( (curl --silent http://169.254.169.254/2014-11-05/meta-data/block-device-mapping/ | grep ephemeral) || true )
+  for ephemeral_device in $ephemeral_devices; do
+    echo "Checking ephemeral device: ${ephemeral_device}"
+    aws_device=$(curl --silent http://169.254.169.254/2014-11-05/meta-data/block-device-mapping/${ephemeral_device})
 
-  device_path=""
-  if [ -b /dev/$aws_device ]; then
-    device_path="/dev/$aws_device"
-  else
-    # Check for the xvd-style name
-    xvd_style=$(echo $aws_device | sed "s/sd/xvd/")
-    if [ -b /dev/$xvd_style ]; then
-      device_path="/dev/$xvd_style"
+    device_path=""
+    if [ -b /dev/$aws_device ]; then
+      device_path="/dev/$aws_device"
+    else
+      # Check for the xvd-style name
+      xvd_style=$(echo $aws_device | sed "s/sd/xvd/")
+      if [ -b /dev/$xvd_style ]; then
+        device_path="/dev/$xvd_style"
+      fi
     fi
-  fi
 
-  if [[ -z ${device_path} ]]; then
-    echo "  Could not find disk: ${ephemeral_device}@${aws_device}"
-  else
-    echo "  Detected ephemeral disk: ${ephemeral_device}@${device_path}"
-    block_devices+=(${device_path})
-  fi
-done
+    if [[ -z ${device_path} ]]; then
+      echo "  Could not find disk: ${ephemeral_device}@${aws_device}"
+    else
+      echo "  Detected ephemeral disk: ${ephemeral_device}@${device_path}"
+      block_devices+=(${device_path})
+    fi
+  done
+fi
 
 # These are set if we should move where docker/kubelet store data
 # Note this gets set to the parent directory

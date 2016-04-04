@@ -182,6 +182,7 @@ validate-hash() {
   fi
 }
 
+has_updated_once=""
 apt-get-install() {
   local -r packages=( $@ )
   installed=true
@@ -206,11 +207,16 @@ apt-get-install() {
 }
 
 apt-get-update() {
+  if [ -n "$has_updated_once" ]; then
+    echo "== Skipping apt-get update =="
+    return
+  fi
   echo "== Refreshing package database =="
   until apt-get update; do
     echo "== apt-get update failed, retrying =="
     sleep 5
   done
+  has_updated_once="true"
 }
 
 # Restart any services that need restarting due to a library upgrade
