@@ -42,7 +42,7 @@ function detect-wily-image () {
         ;;
 
       eu-west-1)
-        AWS_IMAGE=ami-36a71645
+        AWS_IMAGE=ami-1a4dcd69
         ;;
 
       sa-east-1)
@@ -50,7 +50,7 @@ function detect-wily-image () {
         ;;
 
       us-east-1)
-        AWS_IMAGE=ami-6610390c
+        AWS_IMAGE=ami-75d7c01f
         ;;
 
       us-west-1)
