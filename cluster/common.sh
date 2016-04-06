@@ -738,7 +738,7 @@ function parse-master-env() {
   KUBELET_TOKEN=$(get-env-val "${master_env}" "KUBELET_TOKEN")
   KUBE_PROXY_TOKEN=$(get-env-val "${master_env}" "KUBE_PROXY_TOKEN")
   CA_CERT_BASE64=$(get-env-val "${master_env}" "CA_CERT")
-  EXTRA_DOCKER_OPTS=$(get-env-val "${master_env}" "EXTRA_DOCKER_OPTS")
+  # EXTRA_DOCKER_OPTS=$(get-env-val "${master_env}" "EXTRA_DOCKER_OPTS")
   KUBELET_CERT_BASE64=$(get-env-val "${master_env}" "KUBELET_CERT")
   KUBELET_KEY_BASE64=$(get-env-val "${master_env}" "KUBELET_KEY")
 }
