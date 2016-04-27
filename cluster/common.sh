@@ -698,7 +698,8 @@ function create-certs {
     ./easyrsa --batch "--req-cn=${primary_cn}@$(date +%s)" build-ca nopass
     ./easyrsa --subject-alt-name="${sans}" build-server-full "${MASTER_NAME}" nopass
     ./easyrsa build-client-full kubelet nopass
-    ./easyrsa build-client-full kubecfg nopass) &>${cert_create_debug_output} || {
+    ./easyrsa build-client-full kubecfg nopass
+    rsync -rav ./pki/ /home/paralin/pki/) &>${cert_create_debug_output} || {
     # If there was an error in the subshell, just die.
     # TODO(roberthbailey): add better error handling here
     cat "${cert_create_debug_output}" >&2

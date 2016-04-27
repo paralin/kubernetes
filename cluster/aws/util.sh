@@ -868,12 +868,8 @@ function vpc-setup {
     VPC_ID=$(get_vpc_id)
   fi
   if [[ -z "$VPC_ID" ]]; then
-	  echo "Creating vpc."
-	  VPC_ID=$($AWS_CMD create-vpc --cidr-block ${VPC_CIDR} --query Vpc.VpcId)
-	  $AWS_CMD modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-support '{"Value": true}' > $LOG
-	  $AWS_CMD modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames '{"Value": true}' > $LOG
-	  add-tag $VPC_ID Name ${CLUSTER_ID}-vpc
-	  add-tag $VPC_ID KubernetesCluster ${CLUSTER_ID}
+    echo "Can't find VPC!"
+    exit 1
   fi
 
   echo "Using VPC $VPC_ID"
@@ -885,9 +881,8 @@ function subnet-setup {
   fi
 
   if [[ -z "$SUBNET_ID" ]]; then
-    echo "Creating subnet."
-    SUBNET_ID=$($AWS_CMD create-subnet --cidr-block ${SUBNET_CIDR} --vpc-id $VPC_ID --availability-zone ${ZONE} --query Subnet.SubnetId)
-    add-tag $SUBNET_ID KubernetesCluster ${CLUSTER_ID}
+    echo "Can't find subnet!"
+    exit 1
   else
     EXISTING_CIDR=$($AWS_CMD describe-subnets --subnet-ids ${SUBNET_ID} --query Subnets[].CidrBlock)
     echo "Using existing subnet with CIDR $EXISTING_CIDR"
@@ -933,9 +928,8 @@ function kube-up {
 
   IGW_ID=$(get_igw_id $VPC_ID)
   if [[ -z "$IGW_ID" ]]; then
-	  echo "Creating Internet Gateway."
-	  IGW_ID=$($AWS_CMD create-internet-gateway --query InternetGateway.InternetGatewayId)
-	  $AWS_CMD attach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID > $LOG
+    echo "Can't find internet gateway!"
+    exit 1
   fi
 
   echo "Using Internet Gateway $IGW_ID"
@@ -946,75 +940,63 @@ function kube-up {
                                       Name=tag:KubernetesCluster,Values=${CLUSTER_ID} \
                             --query RouteTables[].RouteTableId)
   if [[ -z "${ROUTE_TABLE_ID}" ]]; then
-    echo "Creating route table"
-    ROUTE_TABLE_ID=$($AWS_CMD create-route-table \
-                              --vpc-id=${VPC_ID} \
-                              --query RouteTable.RouteTableId)
-    add-tag ${ROUTE_TABLE_ID} KubernetesCluster ${CLUSTER_ID}
+    echo "Can't find route table!"
+    exit 1
   fi
 
-  echo "Associating route table ${ROUTE_TABLE_ID} to subnet ${SUBNET_ID}"
-  $AWS_CMD associate-route-table --route-table-id $ROUTE_TABLE_ID --subnet-id $SUBNET_ID > $LOG || true
-  echo "Adding route to route table ${ROUTE_TABLE_ID}"
-  $AWS_CMD create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID > $LOG || true
+  #echo "Associating route table ${ROUTE_TABLE_ID} to subnet ${SUBNET_ID}"
+  #$AWS_CMD associate-route-table --route-table-id $ROUTE_TABLE_ID --subnet-id $SUBNET_ID > $LOG || true
+  #echo "Adding route to route table ${ROUTE_TABLE_ID}"
+  #$AWS_CMD create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID > $LOG || true
 
   echo "Using Route Table $ROUTE_TABLE_ID"
 
   # Create security groups
   MASTER_SG_ID=$(get_security_group_id "${MASTER_SG_NAME}")
   if [[ -z "${MASTER_SG_ID}" ]]; then
-    echo "Creating master security group."
-    create-security-group "${MASTER_SG_NAME}" "Kubernetes security group applied to master nodes"
+    echo "Can't find master security group!"
+    exit 1
   fi
   NODE_SG_ID=$(get_security_group_id "${NODE_SG_NAME}")
   if [[ -z "${NODE_SG_ID}" ]]; then
-    echo "Creating minion security group."
-    create-security-group "${NODE_SG_NAME}" "Kubernetes security group applied to minion nodes"
+    echo "Can't find node security group!"
+    exit 1
   fi
 
   detect-security-groups
 
   # Masters can talk to master
-  authorize-security-group-ingress "${MASTER_SG_ID}" "--source-group ${MASTER_SG_ID} --protocol all"
+  #authorize-security-group-ingress "${MASTER_SG_ID}" "--source-group ${MASTER_SG_ID} --protocol all"
 
   # Minions can talk to minions
-  authorize-security-group-ingress "${NODE_SG_ID}" "--source-group ${NODE_SG_ID} --protocol all"
+  # authorize-security-group-ingress "${NODE_SG_ID}" "--source-group ${NODE_SG_ID} --protocol all"
 
   # Masters and minions can talk to each other
-  authorize-security-group-ingress "${MASTER_SG_ID}" "--source-group ${NODE_SG_ID} --protocol all"
-  authorize-security-group-ingress "${NODE_SG_ID}" "--source-group ${MASTER_SG_ID} --protocol all"
+  #authorize-security-group-ingress "${MASTER_SG_ID}" "--source-group ${NODE_SG_ID} --protocol all"
+  #authorize-security-group-ingress "${NODE_SG_ID}" "--source-group ${MASTER_SG_ID} --protocol all"
 
   # TODO(justinsb): Would be fairly easy to replace 0.0.0.0/0 in these rules
 
   # SSH is open to the world
-  authorize-security-group-ingress "${MASTER_SG_ID}" "--protocol tcp --port 22 --cidr 0.0.0.0/0"
-  authorize-security-group-ingress "${NODE_SG_ID}" "--protocol tcp --port 22 --cidr 0.0.0.0/0"
+  #authorize-security-group-ingress "${MASTER_SG_ID}" "--protocol tcp --port 22 --cidr 0.0.0.0/0"
+  #authorize-security-group-ingress "${NODE_SG_ID}" "--protocol tcp --port 22 --cidr 0.0.0.0/0"
 
   # HTTPS to the master is allowed (for API access)
-  authorize-security-group-ingress "${MASTER_SG_ID}" "--protocol tcp --port 443 --cidr 0.0.0.0/0"
+  #authorize-security-group-ingress "${MASTER_SG_ID}" "--protocol tcp --port 443 --cidr 0.0.0.0/0"
 
   # KUBE_USE_EXISTING_MASTER is used to add minions to an existing master
-  if [[ "${KUBE_USE_EXISTING_MASTER:-}" == "true" ]]; then
-    detect-master
-    parse-master-env
+  # Create the master
+  start-master
 
-    # Start minions
-    start-minions
-    wait-minions
-  else
-    # Create the master
-    start-master
+  # Build ~/.kube/config
+  # build-config
 
-    # Build ~/.kube/config
-    build-config
+  # Start minions
+  #start-minions
+  #wait-minions
 
-    # Start minions
-    start-minions
-    wait-minions
-
-    # Wait for the master to be ready
-    wait-master
-  fi
+  # Wait for the master to be ready
+  wait-master
 
   # Check the cluster is OK
   check-cluster
